@@ -6,12 +6,18 @@ from threading import Timer
 import time
 
 try:
-    ser = serial.Serial("/dev/tty.usbserial-DN03FUHZ",115200,timeout=1)
+    ser = serial.Serial("/dev/ttyACM0",115200,timeout=2)
 except:
     print("Couldn't open the serial port")
     sys.exit(0)
 
 window = tk.Tk()
+
+x = tk.StringVar(window) # initial turn
+f = tk.StringVar(window) # distance
+y = tk.StringVar(window) # final turn
+
+
 # to rename the title of the window
 window.title("Teleop")
 window.minsize(800,500)
@@ -24,14 +30,18 @@ tk.Label(window, text = "Parameters", font=("", 24)).grid(row = 0, column = 2, s
 window.columnconfigure(0,weight=1)
 window.columnconfigure(2,weight=4)
 window.rowconfigure(0, weight = 0)
-window.rowconfigure(1, weight = 1)
+window.rowconfigure(2, weight = 1)
+window.rowconfigure(3, weight = 4)
 
 controls_frame = tk.Frame(window,name="controls_frame")
 controls_frame.grid(row = 1, column = 0, sticky = 'NSEW')
 params_frame = tk.Frame(window,name="params_frame")
 params_frame.grid(row = 1, column = 2, sticky = 'NSEW')
+wp_frame = tk.Frame(window,name="wp_frame")
+wp_frame.grid(row = 3, column = 2, sticky = 'NSEW')
 
 ttk.Separator(window, orient='vertical').grid(column=1, row=0, rowspan=2, sticky='NS')
+ttk.Separator(window, orient='horizontal').grid(column=0, row=2, columnspan=4, sticky='NSEW')
 
 # 'Entry' class is used to display the input-field for 'username' text label
 btn_w = tk.Button(controls_frame, text = "W", width = 1, height = 2, name = 'btn_w')
@@ -86,7 +96,7 @@ params = {
         "u": 2,
         "d": 2,
         "p": 0.5
-    },
+    }
 }
 
 controls_frame.columnconfigure(0,weight=1)
@@ -100,7 +110,7 @@ GaitMode = tk.StringVar(window)
 GaitMode.set("Walk")
 
 tk.Label(params_frame, text="Gait").grid(row=0,column=0)
-tk.OptionMenu(params_frame,GaitMode,"Walk","Trot","Pronk","Bound").grid(row=0,column=1,sticky='EW',padx=10,pady=(10,0))
+tk.OptionMenu(params_frame,GaitMode,"Walk","Trot","Pronk","Bound","Waypoint").grid(row=0,column=1,sticky='EW',padx=10,pady=(10,0))
 
 tk.Label(params_frame, text="Frequency").grid(row=1,column=0)
 tk.Scale(params_frame,orient='horizontal',from_=0,to=10,resolution=0.1,	
@@ -133,7 +143,24 @@ tickinterval=0.2, name="p").grid(row=7,column=1,sticky='EW',padx=10)
 params_frame.columnconfigure(0,weight=1)
 params_frame.columnconfigure(1,weight=3)
 
+# waypoint frame
+tk.Label(wp_frame, text="Initial turn in degrees").grid(row=1, column = 2, sticky = '', padx = 20)
+read_x = tk.Entry(wp_frame, textvariable = x).grid(row=7, column = 2, sticky = '', padx = 20)
+
+tk.Label(wp_frame, text="distance to move in meters").grid(row=1, column = 3, sticky = '', padx = 20)
+read_d = tk.Entry(wp_frame, textvariable = f).grid(row=7, column = 3, sticky = '', padx = 20)
+
+tk.Label(wp_frame, text="final turn in degrees").grid(row=1, column = 4, sticky = '', padx = 20)
+read_y = tk.Entry(wp_frame, textvariable = y).grid(row=7, column = 4, sticky = '', padx = 20)
+
+btn_sendwp = tk.Button(wp_frame, text = "Send Waypoint", width = 14, height = 2, name = 'btn_sendwp')
+btn_sendwp.grid(row = 7, column = 5, sticky = 'W')
+
+tk.Label(wp_frame, text="default values are all zero").grid(row=8,column=3)
+
 def send_all_params():
+    if GaitMode.get() == "Waypoint":
+        return
     for (key,value) in params[GaitMode.get()].items():
         window.nametowidget("params_frame."+key).set(value)
         ser.write(str(key + ' ' + GaitMode.get()[0] + ' ' + str(value) + '\r').encode('utf-8'))
@@ -144,6 +171,12 @@ send_all_params()
 
 # 'Checkbutton' class is for creating a checkbutton which will take a 'columnspan' of width two (covers two columns)
 # tk.Checkbutton(window, text = "Keep Me Logged In").grid(columnspan = 2) 
+def get_waypoint():
+    _x = x.get()
+    _f = f.get()
+    _y = y.get()
+
+    return _x, _f, _y
 
 def button1_event(event=None,key=None,type_=None):
     if key:
@@ -154,6 +187,12 @@ def button1_event(event=None,key=None,type_=None):
         event_type = str(event.type)
 
     if event_type == "ButtonPress":
+        if widget_name == "btn_sendwp" and GaitMode.get() == "Waypoint":
+            print("SEND ", GaitMode.get(), "Forward")
+            initial_turn, distance, final_turn = get_waypoint()
+            print(initial_turn, distance, final_turn)
+            ser.write(str('x' + ' ' + 'L' + ' ' + initial_turn + ' ' + distance + ' ' + final_turn +'\r').encode('utf-8'))
+            ser.write(str('L'+'\r').encode('utf-8'))
         if widget_name == "btn_w":
             print("SEND ", GaitMode.get(), "Forward")
             ser.write(str(GaitMode.get()[0]+'\r').encode('utf-8'))
@@ -182,9 +221,14 @@ def button1_event(event=None,key=None,type_=None):
             if GaitMode.get() == "Trot":
                 ser.write(str(widget_name + ' Y ' + str(event.widget.get()) + '\r').encode('utf-8'))
         elif widget_name == "!optionmenu":
-            print("Setting ", widget_name, " to ", GaitMode.get())
-            print(params[GaitMode.get()])
-            send_all_params()
+            if GaitMode.get() == "Waypoint":
+                print("Setting ", widget_name, " to ", GaitMode.get())
+                print("parameters for waypoint are not changeable")
+            else:
+                print("Setting ", widget_name, " to ", GaitMode.get())
+                print(params[GaitMode.get()])
+
+        send_all_params()
 
 was_pressed = {'w': False, 'a': False, 's': False, 'd': False}
             
@@ -249,3 +293,4 @@ while 1:
     #         inString = ""
     #     else:
     #         inString = inString + c
+
