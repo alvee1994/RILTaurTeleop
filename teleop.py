@@ -6,7 +6,7 @@ from threading import Timer
 import time
 
 try:
-    ser = serial.Serial("/dev/ttyACM0",115200,timeout=2)
+    ser = serial.Serial("/dev/ttyACM1",115200,timeout=2)
 except:
     print("Couldn't open the serial port")
     sys.exit(0)
@@ -163,9 +163,9 @@ def send_all_params():
         return
     for (key,value) in params[GaitMode.get()].items():
         window.nametowidget("params_frame."+key).set(value)
-        ser.write(str(key + ' ' + GaitMode.get()[0] + ' ' + str(value) + '\r').encode('utf-8'))
+        ser.write(str(key + ' ' + GaitMode.get()[0] + ' ' + str(value) + '\n').encode('utf-8'))
         if GaitMode.get() == "Trot":
-            ser.write(str(key + ' Y ' + str(value) + '\r').encode('utf-8'))
+            ser.write(str(key + ' Y ' + str(value) + '\n').encode('utf-8'))
 
 send_all_params()
 
@@ -191,35 +191,35 @@ def button1_event(event=None,key=None,type_=None):
             print("SEND ", GaitMode.get(), "Forward")
             initial_turn, distance, final_turn = get_waypoint()
             print(initial_turn, distance, final_turn)
-            ser.write(str('x' + ' ' + 'L' + ' ' + initial_turn + ' ' + distance + ' ' + final_turn +'\r').encode('utf-8'))
-            ser.write(str('L'+'\r').encode('utf-8'))
-        if widget_name == "btn_w":
+            ser.write(str('x' + ' ' + 'L' + ' 0 ' + initial_turn + ' ' + distance + ' ' + final_turn +'\n').encode('utf-8'))
+            ser.write(str('L'+'\n').encode('utf-8'))
+        elif widget_name == "btn_w":
             print("SEND ", GaitMode.get(), "Forward")
-            ser.write(str(GaitMode.get()[0]+'\r').encode('utf-8'))
+            ser.write(str(GaitMode.get()[0]+'\n').encode('utf-8'))
         elif widget_name == "btn_a":
-            print(str('s Y -' + str(params["Trot"]["s"]) + '\r').encode('utf-8'))
-            ser.write(str('s Y -' + str(params["Trot"]["s"]) + '\r').encode('utf-8'))
-            ser.write(b'Y\r')
+            print(str('s Y -' + str(params["Trot"]["s"]) + '\n').encode('utf-8'))
+            ser.write(str('s Y -' + str(params["Trot"]["s"]) + '\n').encode('utf-8'))
+            ser.write(b'Y\n')
             print("SEND Trot Left")
             # ser.write(b'\r')
         elif widget_name == "btn_s":
             print("SEND ", GaitMode.get(), "Backward")
         elif widget_name == "btn_d":
-            print(str('s Y ' + str(params["Trot"]["s"]) + '\r').encode('utf-8'))
-            ser.write(str('s Y ' + str(params["Trot"]["s"]) + '\r').encode('utf-8'))
-            ser.write(b'Y\r')
+            print(str('s Y ' + str(params["Trot"]["s"]) + '\n').encode('utf-8'))
+            ser.write(str('s Y ' + str(params["Trot"]["s"]) + '\n').encode('utf-8'))
+            ser.write(b'Y\n')
             print("SEND Trot Right")
     elif event_type == "ButtonRelease" and (widget_name == "btn_w" or widget_name == "btn_a" or widget_name == "btn_s" or widget_name == "btn_d"):
         print("SEND Stop")
-        ser.write(b'S\r')
+        ser.write(b'S\n')
     
     if event_type == "ButtonRelease":
         if widget_name in param_types:
             print("Setting ", widget_name, " to ", event.widget.get())
             params[GaitMode.get()][widget_name] = event.widget.get()
-            ser.write(str(widget_name + ' ' + GaitMode.get()[0] + ' ' + str(event.widget.get()) + '\r').encode('utf-8'))
+            ser.write(str(widget_name + ' ' + GaitMode.get()[0] + ' ' + str(event.widget.get()) + '\n').encode('utf-8'))
             if GaitMode.get() == "Trot":
-                ser.write(str(widget_name + ' Y ' + str(event.widget.get()) + '\r').encode('utf-8'))
+                ser.write(str(widget_name + ' Y ' + str(event.widget.get()) + '\n').encode('utf-8'))
         elif widget_name == "!optionmenu":
             if GaitMode.get() == "Waypoint":
                 print("Setting ", widget_name, " to ", GaitMode.get())
